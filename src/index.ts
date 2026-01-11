@@ -17,6 +17,7 @@ import { fileURLToPath } from 'url';
 import { poolPromise } from './config/db.js';
 import { userRoute } from './routes/user.route.js';
 import { purchaseOrderRoute } from './routes/purchase-order.route.js';
+import { incomingRoute } from './routes/incoming.route.js';
 
 const app = new Hono();
 
@@ -43,7 +44,8 @@ app.route('/employee', employeeRoute);
 app.route('/item-type', itemTypeRoute);
 app.route('/supplier', supplierRoute);
 app.route('/purchase-order', purchaseOrderRoute);
-app.route('/user', userRoute)
+app.route('/user', userRoute);
+app.route('/incoming', incomingRoute);
 
 
 // Serve from project/uploads

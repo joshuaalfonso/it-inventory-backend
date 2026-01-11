@@ -62,6 +62,7 @@ export const GetPurchaseOrderByIDController = async (c: Context) => {
                     poi.item_id,
                     poi.employee_id,
                     poi.ordered_quantity,
+                    COALESCE(ii.delivered_quantity, 0) AS delivered_quantity,
                     poi.price,
                     i.item_name,
                     i.image_name,
@@ -78,6 +79,15 @@ export const GetPurchaseOrderByIDController = async (c: Context) => {
                     purchase_order_item poi 
                 ON
                     po.purchase_order_id = poi.purchase_order_id
+                LEFT JOIN (
+                    SELECT
+                        purchase_order_item_id,
+                        SUM(received_quantity) AS delivered_quantity
+                    FROM incoming_item
+                    GROUP BY purchase_order_item_id
+                ) ii
+                    ON poi.purchase_order_item_id = ii.purchase_order_item_id
+
                 LEFT JOIN
                     item i
                 ON
@@ -142,6 +152,7 @@ export const GetPurchaseOrderByIDController = async (c: Context) => {
                 employee_id: row.employee_id,
                 employee_name: row.employee_name,
                 ordered_quantity: row.ordered_quantity,
+                delivered_quantity: row.delivered_quantity,
                 price: row.price
             })
         }
