@@ -43,6 +43,108 @@ export const GetIncomingController = async (c: Context) => {
 
 }
 
+export const GetIncomingByID = async (c: Context) => {
+
+    const id = c.req.param("incoming_id");
+
+    if (!id) {
+        return c.json({
+            message: "Missing parameter is required."
+        }, 400);
+    }
+
+    try {
+
+        const pool = await poolPromise;
+
+        const headerResult = await pool.request()
+        .input("incoming_id", sql.Int, id)
+        .query(`
+            SELECT 
+                i.incoming_id,
+                i.purchase_order_id,
+                po.purchase_order_number,
+                i.incoming_date,
+                i.total_quantity,
+                i.remarks,
+                i.created_at
+            FROM 
+                ${tableName} i
+            LEFT JOIN
+                purchase_order po
+            ON
+                i.purchase_order_id = po.purchase_order_id
+            WHERE incoming_id = @incoming_id
+        `);
+
+        if (headerResult.recordset.length === 0) {
+            return c.json({ message: "Incoming not found" }, 404)
+        }
+
+        const itemsResult = await pool.request()
+        .input("incoming_id", sql.Int, id)
+        .query(`
+            SELECT 
+                it.incoming_item_id,
+                it.incoming_id,
+                it.purchase_order_item_id,
+                i.purchase_order_id,
+                item.item_id,
+                item.item_name,
+                item.image_name,
+                b.brand_name,
+                c.category_name,
+                item_type.item_type_name,
+                uom.uom_name,
+                it.received_quantity,
+                it.created_at
+            FROM 
+                incoming_item it
+            INNER JOIN
+                incoming i 
+            ON
+                it.incoming_id = i.incoming_id 
+            LEFT JOIN
+                item 
+            ON
+                it.item_id = item.item_id
+            LEFT JOIN
+                brand b
+            ON
+                item.brand_id = b.brand_id
+            LEFT JOIN
+                category c
+            ON
+                item.category_id = c.category_id
+            LEFT JOIN
+                item_type 
+            ON
+                item.item_type_id = item_type.item_type_id
+            LEFT JOIN
+                uom 
+            ON
+                item.uom_id = uom.uom_id
+            WHERE 
+                it.incoming_id = @incoming_id
+        `)
+
+        return c.json({
+            ...headerResult.recordset[0],
+            incoming_item: itemsResult.recordset
+        })
+
+    }
+
+    catch (error) {
+        return c.json({ 
+            message: 'Failed to load incoming', 
+            details: error 
+        }, 500)
+    }
+
+
+}
+
 
 export const CreateIncomingController = async (c: Context) => {
 
