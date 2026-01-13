@@ -17,6 +17,7 @@ export const GetIncomingController = async (c: Context) => {
                     i.purchase_order_id,
                     po.purchase_order_number,
                     i.incoming_date,
+                    i.sample_code,
                     i.total_quantity,
                     i.remarks,
                     i.created_at
@@ -65,6 +66,7 @@ export const GetIncomingByID = async (c: Context) => {
                 i.purchase_order_id,
                 po.purchase_order_number,
                 i.incoming_date,
+                i.sample_code,
                 i.total_quantity,
                 i.remarks,
                 i.created_at
@@ -173,22 +175,47 @@ export const CreateIncomingController = async (c: Context) => {
     let pool = await poolPromise;
     const transaction = new sql.Transaction(pool);
 
+    const year = new Date().getFullYear()
+
     try {
         await transaction.begin();
+
+        const lastRecordResult = await new sql.Request(transaction)
+        .query(`
+            SELECT 
+                TOP 1 sample_code
+            FROM 
+                incoming
+            WHERE 
+                sample_code LIKE 'INC-${year}-%'
+            ORDER BY 
+                incoming_id DESC
+        `)
+
+        let nextNumber = 1
+
+        if (lastRecordResult.recordset.length > 0) {
+            const lastCode = lastRecordResult.recordset[0].sample_code 
+            nextNumber = Number(lastCode.split('-')[2]) + 1
+        }
+
+        const sample_code = `INC-${year}-${String(nextNumber).padStart(4, '0')}`;
+        console.log(sample_code)
 
         const headerResult = await new sql.Request(transaction)
         .input('purchase_order_id', sql.Int, purchase_order_id)
         .input('incoming_date', sql.Date, incoming_date)
+        .input('sample_code', sql.VarChar, sample_code)
         .input('total_quantity', sql.Int, total_quantity)
         .input('remarks', sql.NVarChar, remarks)
         .query(`     
             INSERT INTO 
                 incoming 
-                (purchase_order_id, incoming_date, total_quantity, remarks)
+                (purchase_order_id, incoming_date, sample_code, total_quantity, remarks)
             OUTPUT 
                 INSERTED.*
             VALUES 
-                (@purchase_order_id, @incoming_date, @total_quantity, @remarks)
+                (@purchase_order_id, @incoming_date, @sample_code, @total_quantity, @remarks)
         `);
 
         const headerInsertedData = headerResult.recordset[0] || [];
