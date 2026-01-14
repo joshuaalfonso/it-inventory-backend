@@ -12,12 +12,29 @@ export const GetPurchaseOrderController = async (c: Context) => {
         const result = await pool
             .request()
             .query(`
-                SELECT 
-                    * 
+                SELECT
+                    po.*,
+                    COALESCE(t.total_delivered_quantity, 0) AS total_delivered
                 FROM 
-                    ${tableName} 
+                    purchase_order po
+                LEFT JOIN (
+                    SELECT
+                        i.purchase_order_id,
+                        SUM(ii.received_quantity) AS total_delivered_quantity
+                    FROM 
+                        incoming i
+                    LEFT JOIN 
+                        incoming_item ii
+                    ON 
+                        i.incoming_id = ii.incoming_id
+                    GROUP BY 
+                        i.purchase_order_id
+                ) t
+                ON 
+                    po.purchase_order_id = t.purchase_order_id
                 ORDER BY 
-                    created_at DESC
+                    po.created_at DESC;
+
             `);
 
         return c.json(result.recordset);
@@ -63,6 +80,8 @@ export const GetPurchaseOrderByIDController = async (c: Context) => {
                     poi.employee_id,
                     poi.ordered_quantity,
                     COALESCE(ii.delivered_quantity, 0) AS delivered_quantity,
+                    SUM(COALESCE(ii.delivered_quantity, 0))
+                    OVER (PARTITION BY po.purchase_order_id) AS total_delivered,
                     poi.price,
                     i.item_name,
                     i.image_name,
@@ -83,10 +102,12 @@ export const GetPurchaseOrderByIDController = async (c: Context) => {
                     SELECT
                         purchase_order_item_id,
                         SUM(received_quantity) AS delivered_quantity
-                    FROM incoming_item
-                    GROUP BY purchase_order_item_id
+                    FROM 
+                        incoming_item
+                    GROUP BY 
+                        purchase_order_item_id
                 ) ii
-                    ON poi.purchase_order_item_id = ii.purchase_order_item_id
+                ON poi.purchase_order_item_id = ii.purchase_order_item_id
 
                 LEFT JOIN
                     item i
@@ -133,6 +154,7 @@ export const GetPurchaseOrderByIDController = async (c: Context) => {
                     purchase_requisition_number: row.purchase_requisition_number,
                     delivery_date: row.delivery_date,
                     total_quantity: row.total_quantity,
+                    total_delivered: row.total_delivered,
                     status: row.status,
                     created_at: row.created_at,
                     purchase_order_item: []

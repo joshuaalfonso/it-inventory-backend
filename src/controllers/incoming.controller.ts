@@ -228,6 +228,7 @@ export const CreateIncomingController = async (c: Context) => {
                 i.purchase_order_id,
                 po.purchase_order_number,
                 i.incoming_date,
+                i.sample_code,
                 i.total_quantity,
                 i.remarks,
                 i.created_at
